@@ -1,0 +1,134 @@
+---
+title: "Homework 3"
+subtitle: "Research Methods, Spring 2024"
+author: "Answer Key"
+format:
+  pdf:
+    output-file: "mccarthy-i-hwk3-1"
+    output-ext:  "pdf"
+    header-includes:
+      - \usepackage{float}
+      - \floatplacement{table}{H}
+---
+
+```{r}
+#| include: false
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, 
+               data.table, gdata, scales, kableExtra, modelsummary, fixest)
+```
+
+
+```{r}
+#| include: false
+#| eval: true
+ 
+load("analysis/Hwk3_workspace.Rdata")
+```
+
+
+My answers to the homework questions are described below. As with the previous homework assignments, note that my analysis is in a seperate `R` script. My analysis file is available [here](analysis/hwk3-analysis.R). 
+
+# Summarize the data
+
+\vspace{.2in}
+\noindent 1. Present a bar graph showing the proportion of states with a change in their cigarette tax in each year from 1970 to 1985.
+
+
+The point of this graph is to highlight the prevalence of tax changes across states and over time. Since taxes are going to be used as our instrument for prices, understanding how this instrument varies is important. In this case, I'll compare state taxes in year $t$ to year $t-1$. I then form an indicator set to 1 if there is a change for a given state and 0 otherwise. The mean of this indicator variables across states in any given year will then provide the share of states with a change in taxes in that year. Then I plot this as a bar chart from 1971 (the first year we can see a change) to 1985. Results are presented in @fig-taxchange.
+
+```{r}
+#| echo: false
+#| label: fig-taxchange
+#| fig-cap: "Share of States with Tax Changes"
+
+tax.change.plot
+```
+
+
+\newpage
+\noindent 2. Plot on a single graph the the average tax (in 2012 dollars) on cigarettes and the average price of a pack of cigarettes from 1970 to 2018.
+
+I'm not specific in the question, but since we used the full (federal plus state) taxes in class, that's what I'll use here as well. Average taxes by year are summarized in @fig-tpplot.
+
+```{r}
+#| echo: false
+#| label: fig-tpplot
+#| fig-cap: "Average Cigarette Tax and Price in 2012 Dollars"
+
+tax.price.plot
+```
+
+
+\newpage
+\noindent 3. Identify the 5 states with the highest increases in cigarette prices (in dollars) over the time period. Plot the average number of packs sold per capita for those states from 1970 to 2018.
+
+
+There are several ways to do this, but I first created two datasets (one for 1970 and one for 2018). Then I merged those datasets by state and calculated the price change between the two years. The average sales per capita among these states is presented in @fig-highprice.
+
+```{r}
+#| echo: false
+#| label: fig-highprice
+#| fig-cap: "Sales per Capita among States with Highest Price Increases"
+
+high.price.plot
+```
+
+
+\newpage
+\noindent 4. Identify the 5 states with the lowest increases in cigarette prices over the time period. Plot the average number of packs sold per capita for those states from 1970 to 2018. 
+
+The average sales per capita among these states is presented in @fig-lowprice.
+
+```{r}
+#| echo: false
+#| label: fig-lowprice
+#| fig-cap: "Sales per Capita among States with Lowest Price Increases"
+
+low.price.plot
+```
+
+\newpage
+\noindent 5. Compare the trends in sales from the 5 states with the highest price increases to those with the lowest price increases.
+
+For this, we just need to calculate the average sales among the 5 states in the highest group and, seperately, the average sales among the 5 states in the lowest group. The results are summarized in @fig-combined. Perhaps not surprisingly, the states with the largest price increases over time also experienced the largest declines in packs sold per capita.
+
+```{r}
+#| echo: false
+#| label: fig-combined
+#| fig-cap: "Sales per Capita among States with High vs Low Price Changes"
+
+combined.price.plot
+```
+
+
+\newpage
+# Estimate ATEs
+Now let's work on estimating a demand curve for cigarettes. Specifically, we're going to estimate the price elasticity of demand for cigarettes. When explaining your findings, try to limit your discussion just to a couple of sentences.
+
+\vspace{.2in}  
+I'll combine results from all ATE questions into one. Estimates are presented in @tab-coeftable, where the top panel presents the main regression results (OLS and IV, respectively) and the subsequent panels present details of the IV estimator. 
+
+```{r coeftable, echo=F}
+#| echo: false
+#| label: tab-coeftable
+#| tbl-cap: "Elasticity Estimates from OLS and IV"
+
+f <- function(x) formatC(x, digits = 0, big.mark = ",", format = "f")
+modelsummary(list("Estimates" = list("OLS"=ols1, "IV"=iv1, "OLS"=ols2, "IV"=iv2),
+                  "Reduced Form"=list("IV"=reduced.form, "IV"=reduced.form2),
+                  "First Stage"=list("IV"=first.stage, "IV"=first.stage2)),
+             shape="rbind",
+             coef_map=c('ln_price_2012'="Log Price",
+                        'fit_ln_price_2012'="Log Price",
+                        'ln_tax_2012'="Log Tax"),
+             gof_map=list(list("raw" = "nobs", "clean"= "N", "fmt"=f),
+                          list("raw"="r.squared", "clean" = "R2", "fmt"=2)),
+             output="kableExtra") %>%
+  add_header_above(c(" "=1, "1970 - 1990"=2, "1991 - 2015"=2)) %>%
+  kable_styling(latex_options="hold_position")
+```
+
+These results show an interesting pattern in which our IV estimates are larger (more elastic) in the 1991 to 2015 period but less elastic in the 1970 to 1990 period. This highlights the importance of the **local** average treatment effect interpretation of IV. As we noted in class, the largest federal tax changes occurred after 1990. Before then, tax changes were isolated among individual states. The estimates in the 1970 to 1990 timer period are therefore reflective of demand among those specific states with the largest tax changes over that period. Relatedly, our instrument is "stronger" in the 1991 to 2015 time period, with a first-stage F-statistic of `r round((0.514/0.007)^2,2)` compared to `r round((0.260/0.012)^2,2)` in the earlier period.
+
